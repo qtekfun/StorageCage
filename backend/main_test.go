@@ -4,6 +4,7 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -36,6 +37,45 @@ func TestHomeHandler(t *testing.T) {
 
 	// Check if the response body is what we expect.
 	if rr.Body.String() != expectedBody {
+		t.Errorf("handler returned unexpected body: got %v want %v",
+			rr.Body.String(), expectedBody)
+	}
+}
+
+// TestListFilesHandler will test our future /api/v1/files endpoint.
+func TestListFilesHandler(t *testing.T) {
+	// This is the exact JSON output we expect from our API.
+	// Using raw string literals (`) makes it easy to write multi-line strings.
+	expectedBody := `[{"id":"1","name":"file1.txt","size":1024},{"id":"2","name":"image.jpg","size":5242880}]`
+
+	// We create a request to our API endpoint.
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/files", nil)
+
+	// A ResponseRecorder to capture the response.
+	rr := httptest.NewRecorder()
+
+	// We need a router to route the request to the correct handler.
+	// We'll create it here for the test.
+	// This shows the power of having the newRouter() function!
+	router := newRouter()
+	router.ServeHTTP(rr, req)
+
+	// Check the status code.
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusOK)
+	}
+
+	// Check the Content-Type header.
+	if ctype := rr.Header().Get("Content-Type"); ctype != "application/json" {
+		t.Errorf("handler returned wrong content type: got %v want %v",
+			ctype, "application/json")
+	}
+
+	// Check the response body. We trim whitespace from the response body for a robust comparison.
+    // NOTE: In a real-world scenario with complex JSON, it's better to unmarshal
+    // the response into a struct and compare the struct fields. For now, this is fine.
+	if strings.TrimSpace(rr.Body.String()) != expectedBody {
 		t.Errorf("handler returned unexpected body: got %v want %v",
 			rr.Body.String(), expectedBody)
 	}

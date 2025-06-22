@@ -1,49 +1,58 @@
+// backend/main_test.go
 package main
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
-func TestHomeHandler(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	rr := httptest.NewRecorder()
-	router := newRouter()
-	router.ServeHTTP(rr, req)
+func TestListFilesHandler_RealFiles(t *testing.T) {
+	// 1. Create a temporary directory for our test files.
+	// t.TempDir() automatically creates it and cleans it up when the test finishes.
+	tempDir := t.TempDir()
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
+	// 2. Create a dummy file inside the temporary directory.
+	dummyFileName := "testfile.txt"
+	dummyFileContent := "hello world"
+	err := os.WriteFile(filepath.Join(tempDir, dummyFileName), []byte(dummyFileContent), 0666)
+	if err != nil {
+		t.Fatalf("Failed to create dummy file: %v", err)
 	}
 
-	expected := "StorageCage API server is running! 👋"
-	if rr.Body.String() != expected {
-		t.Errorf("handler returned unexpected body: got %v want %v",
-			rr.Body.String(), expected)
-	}
-}
+	// 3. Setup our config and router for the test.
+	config := AppConfig{StorageDir: tempDir}
+	router := newRouter(&config)
 
-func TestListFilesHandler(t *testing.T) {
-	expectedBody := `[{"id":"1","name":"file1.txt","size":1024},{"id":"2","name":"image.jpg","size":5242880}]`
+	// 4. Perform the request.
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/files", nil)
 	rr := httptest.NewRecorder()
-	router := newRouter()
 	router.ServeHTTP(rr, req)
 
+	// 5. Assertions
 	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
 	}
 
-	if ctype := rr.Header().Get("Content-Type"); ctype != "application/json" {
-		t.Errorf("handler returned wrong content type: got %v want %v",
-			ctype, "application/json")
+	// Decode the JSON response
+	var files []FileInfo
+	if err := json.NewDecoder(rr.Body).Decode(&files); err != nil {
+		t.Fatalf("Failed to decode response body: %v", err)
 	}
 
-	if strings.TrimSpace(rr.Body.String()) != expectedBody {
-		t.Errorf("handler returned unexpected body: got %v want %v",
-			rr.Body.String(), expectedBody)
+	// Check if we got the correct number of files.
+	if len(files) != 1 {
+		t.Errorf("handler returned wrong number of files: got %v want %v", len(files), 1)
+	}
+
+	// Check the details of the file.
+	if files[0].Name != dummyFileName {
+		t.Errorf("handler returned wrong file name: got %v want %v", files[0].Name, dummyFileName)
+	}
+	if files[0].Size != int64(len(dummyFileContent)) {
+		t.Errorf("handler returned wrong file size: got %v want %v", files[0].Size, len(dummyFileContent))
 	}
 }

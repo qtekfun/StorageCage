@@ -9,13 +9,11 @@ on:
     branches: [ master ]
 
 jobs:
-  # Job 1: Test the Go backend
   test-backend:
     name: Test Go Backend
     runs-on: ubuntu-latest
 
-    # NEW: Set a default working directory for all 'run' steps in this job.
-    # This tells GitHub Actions to 'cd backend' before running any commands.
+    # This is still good practice for our 'run' steps.
     defaults:
       run:
         working-directory: ./backend
@@ -27,14 +25,14 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          # Now that the context is the backend folder, the path is simpler.
-          # The action will now correctly find go.mod and go.sum for caching.
-          go-version-file: 'go.mod'
+          # CORRECTED: The path must be relative to the repository root
+          # because this 'uses:' step is not affected by the 'defaults.run' block.
+          go-version-file: 'backend/go.mod'
 
       - name: Build
-        # The 'working-directory' key is no longer needed here because of the 'defaults' block above.
+        # This step correctly uses the default working-directory
         run: go build -v ./...
 
       - name: Test
-        # This step also inherits the default working directory.
+        # This step also correctly uses the default working-directory
         run: go test -v ./...

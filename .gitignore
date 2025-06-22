@@ -1,0 +1,34 @@
+# .gitignore for StorageCage (Go + Vue project)
+
+# Go / Backend
+# Ignore the compiled binary (will be named after the project)
+/backend/StorageCage
+
+# Ignore any local .env files
+.env
+.env.local
+
+# Frontend / Vue.js
+# Ignore node_modules directory
+/frontend/node_modules
+
+# Ignore build output directory
+/frontend/dist
+
+# Ignore .env files in frontend
+/frontend/.env.local
+/frontend/.env.*.local
+
+# Log files
+*.log
+/frontend/npm-debug.log*
+/frontend/yarn-debug.log*
+/frontend/yarn-error.log*
+
+# Editor specific files
+.vscode/
+.vscodium/
+
+# OS specific files
+.DS_Store
+Thumbs.db

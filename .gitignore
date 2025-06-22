@@ -32,3 +32,14 @@
 # OS specific files
 .DS_Store
 Thumbs.db
+
+# ------------------
+# Application Data
+# ------------------
+
+# Ignore all files and subdirectories inside the data directory...
+data/*
+
+# ...but DO NOT ignore the .gitkeep file. This ensures the empty
+# data directory itself is still included when someone clones the repository.
+!data/.gitkeep

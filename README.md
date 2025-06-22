@@ -9,6 +9,7 @@ This project aims to provide a lightweight, secure, and fast alternative for per
 ### Built With
 
 * [Go](https://golang.org/)
+* [Chi Router](https://github.com/go-chi/chi)
 * [Vue.js](https://vuejs.org/)
 * [Docker](https://www.docker.com/)
 

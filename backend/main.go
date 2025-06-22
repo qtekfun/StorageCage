@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"github.com/go-chi/chi/v5"
 )
 
 // homeHandler handles requests to the root ("/") path.
@@ -13,15 +14,20 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "StorageCage API server is running! 👋")
 }
 
+// newRouter creates a new Chi router and registers the routes.
+func newRouter() http.Handler {
+	r := chi.NewRouter()
+	r.Get("/", homeHandler)
+	return r
+}
+
 func main() {
-	// Register the homeHandler for the "/" route.
-	http.HandleFunc("/", homeHandler)
+	r := newRouter()
 
 	port := "8080"
 
 	// Log that the server is starting.
 	log.Printf("🚀 Server listening on http://localhost:%s", port)
 
-	// Start the server and log a fatal error if it fails.
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	log.Fatal(http.ListenAndServe(":"+port, r))
 }

@@ -24,6 +24,24 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: 'backend/go.mod'
+          cache: false
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          # The path to the directory we want to cache on the runner
+          path: ~/go/pkg/mod
+          # The key for this cache. It's based on the OS and a hash of our go.sum file.
+          # If go.sum changes, the hash changes, and a new cache is created.
+          key: ${{ runner.os }}-go-${{ hashFiles('backend/go.sum') }}
+          # A fallback key
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install Dependencies
+        # This step will be very fast if the cache was restored successfully.
+        # It ensures all modules are available before building.
+        run: go mod download
 
       - name: Build
         run: go build -v ./...

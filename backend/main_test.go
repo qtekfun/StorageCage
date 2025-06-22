@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -112,5 +113,42 @@ func TestUploadFileHandler(t *testing.T) {
 	}
 	if fileInfo.Name != "test-upload.txt" {
 		t.Errorf("response file name is incorrect: got %v want %v", fileInfo.Name, "test-upload.txt")
+	}
+}
+
+func TestDeleteFileHandler(t *testing.T) {
+	// 1. Setup: Create a temp directory and a dummy file to delete.
+	tempDir := t.TempDir()
+	dummyFileName := "file-to-delete.txt"
+	dummyFilePath := filepath.Join(tempDir, dummyFileName)
+	if err := os.WriteFile(dummyFilePath, []byte("delete me"), 0666); err != nil {
+		t.Fatalf("Failed to create dummy file for deletion test: %v", err)
+	}
+
+	config := AppConfig{StorageDir: tempDir}
+	router := newRouter(&config)
+
+	// 2. Create the request to the DELETE endpoint.
+	// The file name is passed as a URL parameter.
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/files/"+dummyFileName, nil)
+	rr := httptest.NewRecorder()
+
+	// 3. Perform the request.
+	router.ServeHTTP(rr, req)
+
+	// 4. Assertions
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	// 4a. Check the success message in the response body.
+	expected := `{"message":"file deleted successfully"}`
+	if strings.TrimSpace(rr.Body.String()) != expected {
+		t.Errorf("handler returned unexpected body: got %v want %v", rr.Body.String(), expected)
+	}
+
+	// 4b. The most important check: verify the file NO LONGER EXISTS on disk.
+	if _, err := os.Stat(dummyFilePath); !os.IsNotExist(err) {
+		t.Errorf("handler did not delete the file from disk, it still exists")
 	}
 }

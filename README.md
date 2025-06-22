@@ -54,3 +54,9 @@ Don't forget to give the project a star! Thanks again!
 ## License
 
 Distributed under the MIT License. See `LICENSE` for more information.
+
+## API Endpoints
+
+* `GET /api/v1/files`: Lists all files in the storage directory.
+* `POST /api/v1/files`: Uploads a new file. The form field name must be `file`.
+* `DELETE /api/v1/files/{filename}`: Deletes a specific file.

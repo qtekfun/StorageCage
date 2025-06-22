@@ -9,15 +9,13 @@ on:
     branches: [ master ]
 
 jobs:
+  # Job 1: Test the Go backend (no changes here)
   test-backend:
     name: Test Go Backend
     runs-on: ubuntu-latest
-
-    # This is still good practice for our 'run' steps.
     defaults:
       run:
         working-directory: ./backend
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -25,14 +23,46 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          # CORRECTED: The path must be relative to the repository root
-          # because this 'uses:' step is not affected by the 'defaults.run' block.
           go-version-file: 'backend/go.mod'
 
       - name: Build
-        # This step correctly uses the default working-directory
         run: go build -v ./...
 
       - name: Test
-        # This step also correctly uses the default working-directory
         run: go test -v ./...
+
+  # Job 2: Test and Build the Vue.js frontend
+  test-frontend:
+    name: Test and Build Vue Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Use the same major version of Node.js as in development
+          node-version: '22.x'
+          # Use npm's cache to speed up dependency installation in future runs
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Dependencies
+        working-directory: ./frontend
+        # 'npm ci' is recommended for CI. It's faster and uses the lockfile
+        # for deterministic builds, ensuring you test against the exact same
+        # dependency versions every time.
+        run: npm ci
+
+      - name: Lint Code
+        working-directory: ./frontend
+        run: npm run lint
+
+      - name: Run Unit Tests
+        working-directory: ./frontend
+        run: npm run test:unit
+
+      - name: Build for Production
+        working-directory: ./frontend
+        run: npm run build

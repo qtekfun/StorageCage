@@ -2,20 +2,15 @@
 import { ref, onMounted } from 'vue'
 
 // --- State Management ---
-// Reactive variable for the list of files from the API
 const files = ref([])
-// To hold any error messages during fetch
 const error = ref(null)
-// To hold the file selected by the user in the form
 const selectedFile = ref(null)
-// To show feedback during and after the upload
 const uploadStatus = ref('')
 
 // --- API Logic ---
-// We've extracted the fetching logic into its own reusable function
 async function fetchFiles() {
   try {
-    error.value = null // Reset error on new fetch
+    error.value = null
     const response = await fetch('http://localhost:8080/api/v1/files')
     if (!response.ok) {
       throw new Error('Network response was not ok')
@@ -28,54 +23,64 @@ async function fetchFiles() {
   }
 }
 
-// Function to handle the form submission
 async function handleUpload() {
-  // 1. Check if a file is actually selected
   if (!selectedFile.value) {
     uploadStatus.value = 'Please select a file first.'
     return
   }
-
-  // 2. Use the FormData API to prepare the file for sending.
-  // This is the standard way to send files via HTTP.
   const formData = new FormData()
-  // The key 'file' must match what our Go backend expects: r.FormFile("file")
   formData.append('file', selectedFile.value)
-
   uploadStatus.value = 'Uploading...'
-
   try {
-    // 3. Make the POST request using fetch
     const response = await fetch('http://localhost:8080/api/v1/files', {
       method: 'POST',
       body: formData,
-      // NOTE: We DO NOT set the 'Content-Type' header ourselves.
-      // The browser will automatically set it to 'multipart/form-data'
-      // with the correct boundary when we use FormData.
     })
-
     if (!response.ok) {
       throw new Error('Upload failed.')
     }
-
     uploadStatus.value = 'Upload successful!'
-
-    // 4. Refresh the file list to show the new file!
-    await fetchFiles()
-
+    await fetchFiles() // Refresh the list
   } catch (e) {
     uploadStatus.value = `Error: ${e.message}`
     console.error('Error uploading file:', e)
   }
 }
 
-// Function to update our 'selectedFile' ref when the user chooses a file
+// --- NEW: Delete Functionality ---
+async function handleDelete(fileName) {
+  // 1. Ask for user confirmation. This is crucial for destructive actions!
+  if (!confirm(`Are you sure you want to delete "${fileName}"?`)) {
+    return
+  }
+
+  try {
+    error.value = null
+    // 2. Make the DELETE request with the filename in the URL
+    const response = await fetch(`http://localhost:8080/api/v1/files/${fileName}`, {
+      method: 'DELETE',
+    })
+
+    if (!response.ok) {
+      const errData = await response.json()
+      throw new Error(errData.message || 'Could not delete file.')
+    }
+    
+    // 3. If successful, refresh the file list to reflect the change
+    await fetchFiles()
+
+  } catch (e) {
+    error.value = e.message
+    console.error('Error deleting file:', e)
+  }
+}
+
+
 function handleFileChange(event) {
   selectedFile.value = event.target.files[0]
 }
 
 // --- Lifecycle Hook ---
-// Fetch the initial list of files when the component is first mounted
 onMounted(fetchFiles)
 
 </script>
@@ -96,12 +101,15 @@ onMounted(fetchFiles)
     <section class="file-list-section">
       <h2>Stored Files</h2>
       <div v-if="error" class="error">
-        <p>Error fetching files: {{ error }}</p>
+        <p>Error: {{ error }}</p>
       </div>
       <ul v-else-if="files && files.length">
         <li v-for="file in files" :key="file.id">
-          <span>{{ file.name }}</span>
-          <span class="size">({{ file.size }} bytes)</span>
+          <div>
+            <span>{{ file.name }}</span>
+            <span class="size">({{ file.size }} bytes)</span>
+          </div>
+          <button @click="handleDelete(file.name)" class="delete-btn">Delete</button>
         </li>
       </ul>
       <div v-else>
@@ -113,6 +121,7 @@ onMounted(fetchFiles)
 </template>
 
 <style scoped>
+/* ... (existing styles) ... */
 h1 {
   border-bottom: 2px solid #eee;
   padding-bottom: 0.5rem;
@@ -129,7 +138,10 @@ h1 {
 }
 
 .error {
-  color: red;
+  color: #d32f2f;
+  background-color: #ffcdd2;
+  padding: 1rem;
+  border-radius: 4px;
 }
 
 .size {
@@ -144,10 +156,21 @@ ul {
 }
 
 li {
-  padding: 0.5rem 0;
+  padding: 0.5rem 0.25rem;
   border-bottom: 1px solid #eee;
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+.delete-btn {
+  background-color: #d32f2f;
+  color: white;
+  border: none;
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.delete-btn:hover {
+  background-color: #c62828;
 }
 </style>

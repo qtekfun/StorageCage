@@ -2,7 +2,10 @@
 package main
 
 import (
+	"bytes" // Needed to create an in-memory buffer for the request body
 	"encoding/json"
+	"io"             // Needed for io.Copy
+	"mime/multipart" // The key package for building multipart/form-data requests
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -54,5 +57,60 @@ func TestListFilesHandler_RealFiles(t *testing.T) {
 	}
 	if files[0].Size != int64(len(dummyFileContent)) {
 		t.Errorf("handler returned wrong file size: got %v want %v", files[0].Size, len(dummyFileContent))
+	}
+}
+
+func TestUploadFileHandler(t *testing.T) {
+	// 1. Setup: Create a temp directory and the router config
+	tempDir := t.TempDir()
+	config := AppConfig{StorageDir: tempDir}
+	router := newRouter(&config)
+
+	// 2. Create the multipart request body
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+	// The field name "file" is important, our handler will look for it.
+	part, err := writer.CreateFormFile("file", "test-upload.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Write the "file content" to the multipart request
+	_, err = io.WriteString(part, "this is a test file content")
+	if err != nil {
+		t.Fatal(err)
+	}
+	writer.Close() // This finalizes the request body
+
+	// 3. Create the HTTP request
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/files", body)
+	// Set the Content-Type header, which includes the multipart boundary
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	// 4. Perform the request
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	// 5. Assertions
+	if status := rr.Code; status != http.StatusCreated {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
+	}
+
+	// Check that the file was actually created on disk
+	filePath := filepath.Join(tempDir, "test-upload.txt")
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		t.Fatalf("handler did not create file on disk: %v", err)
+	}
+	if string(content) != "this is a test file content" {
+		t.Errorf("file content is incorrect")
+	}
+
+	// Check the JSON response
+	var fileInfo FileInfo
+	if err := json.NewDecoder(rr.Body).Decode(&fileInfo); err != nil {
+		t.Fatalf("Failed to decode response body: %v", err)
+	}
+	if fileInfo.Name != "test-upload.txt" {
+		t.Errorf("response file name is incorrect: got %v want %v", fileInfo.Name, "test-upload.txt")
 	}
 }

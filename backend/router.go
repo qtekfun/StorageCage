@@ -12,6 +12,7 @@ func newRouter(config *AppConfig) http.Handler {
 	r.Get("/", config.homeHandler)
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/files", config.listFilesHandler)
+		r.Post("/files", config.uploadFileHandler)
 	})
 	return r
 }

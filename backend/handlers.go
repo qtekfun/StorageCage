@@ -3,9 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 )
 
 // FileInfo represents metadata for a file in our system.
@@ -64,4 +66,48 @@ func (cfg *AppConfig) listFilesHandler(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(files); err != nil {
 		log.Printf("ERROR: Error encoding files to JSON: %v", err)
 	}
+}
+
+func (cfg *AppConfig) uploadFileHandler(w http.ResponseWriter, r *http.Request) {
+	// 1. Parse the multipart form. 10 << 20 specifies a maximum
+	// upload of 10 MB. It's a good idea to have a limit.
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		http.Error(w, "Could not parse multipart form", http.StatusBadRequest)
+		return
+	}
+
+	// 2. Retrieve the file from the form data.
+	// "file" is the key that the client is expected to use for the file upload.
+	file, handler, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, "Invalid file key", http.StatusBadRequest)
+		return
+	}
+	defer file.Close() // Crucial to close the file when we're done
+
+	// 3. Create the destination file on the server.
+	dstPath := filepath.Join(cfg.StorageDir, handler.Filename)
+	dst, err := os.Create(dstPath)
+	if err != nil {
+		http.Error(w, "Could not create file on server", http.StatusInternalServerError)
+		return
+	}
+	defer dst.Close() // Also crucial
+
+	// 4. Copy the uploaded file's content to the destination file.
+	if _, err := io.Copy(dst, file); err != nil {
+		http.Error(w, "Could not save file content", http.StatusInternalServerError)
+		return
+	}
+
+	// 5. Respond with the details of the created file.
+	fileInfo := FileInfo{
+		ID:   handler.Filename,
+		Name: handler.Filename,
+		Size: handler.Size,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated) // Set the status code to 201
+	json.NewEncoder(w).Encode(fileInfo)
 }
